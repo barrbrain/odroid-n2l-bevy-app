@@ -1,0 +1,16 @@
+[package]
+name = "odroid-n2l-bevy-app"
+version = "0.1.0"
+edition = "2021"
+
+[features]
+default = ["bevy/dynamic_linking", "bevy/wayland"]
+
+[dependencies]
+bevy = "0.10"
+
+[profile.dev]
+opt-level = 1
+
+[profile.dev.package."*"]
+opt-level = 3
