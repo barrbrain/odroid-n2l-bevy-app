@@ -7,6 +7,7 @@ use bevy::{
     sprite::collide_aabb::{collide, Collision},
     sprite::MaterialMesh2dBundle,
 };
+use std::f32::consts::PI;
 
 #[cfg(not(debug_assertions))]
 use bevy::window::WindowMode;
@@ -35,6 +36,7 @@ fn main() {
         .insert_resource(ClearColor(BACKGROUND_COLOR))
         .add_startup_system(setup)
         .insert_resource(FixedTime::new_from_secs(TIME_STEP))
+        .insert_resource(Turn::default())
         .add_system(bevy::window::close_on_esc)
         .add_system(touch_system)
         .run();
@@ -45,6 +47,7 @@ fn touch_system(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
     mut targets: Query<&Transform, With<Target>>,
+    mut turn: ResMut<Turn>,
     touches: Res<Touches>,
 ) {
     for touch in touches.iter_just_pressed() {
@@ -66,19 +69,49 @@ fn touch_system(
             ) {
                 let mut translation = target.translation;
                 translation.z = 2.0;
-                commands.spawn(MaterialMesh2dBundle {
-                    mesh: meshes.add(shape::Circle::new(45.).into()).into(),
-                    material: materials.add(ColorMaterial::from(Color::rgb(0.5, 0.5, 1.0))),
-                    transform: Transform::from_translation(translation),
-                    ..default()
-                });
-                translation.z = 3.0;
-                commands.spawn(MaterialMesh2dBundle {
-                    mesh: meshes.add(shape::Circle::new(30.).into()).into(),
-                    material: materials.add(ColorMaterial::from(BACKGROUND_COLOR)),
-                    transform: Transform::from_translation(translation),
-                    ..default()
-                });
+                if turn.0 {
+                    commands.spawn(MaterialMesh2dBundle {
+                        mesh: meshes.add(shape::Circle::new(45.).into()).into(),
+                        material: materials.add(ColorMaterial::from(Color::rgb(0.5, 0.5, 1.0))),
+                        transform: Transform::from_translation(translation),
+                        ..default()
+                    });
+                    translation.z = 3.0;
+                    commands.spawn(MaterialMesh2dBundle {
+                        mesh: meshes.add(shape::Circle::new(30.).into()).into(),
+                        material: materials.add(ColorMaterial::from(BACKGROUND_COLOR)),
+                        transform: Transform::from_translation(translation),
+                        ..default()
+                    });
+                } else {
+                    let scale = Vec3::new(15.0, 100.0, 1.0);
+                    commands.spawn(SpriteBundle {
+                        sprite: Sprite {
+                            color: Color::rgb(1.0, 0.5, 0.5),
+                            ..default()
+                        },
+                        transform: Transform {
+                            translation,
+                            rotation: Quat::from_rotation_z(PI * 0.25),
+                            scale,
+                        },
+                        ..default()
+                    });
+                    translation.z = 3.0;
+                    commands.spawn(SpriteBundle {
+                        sprite: Sprite {
+                            color: Color::rgb(1.0, 0.5, 0.5),
+                            ..default()
+                        },
+                        transform: Transform {
+                            translation,
+                            rotation: Quat::from_rotation_z(PI * 0.75),
+                            scale,
+                        },
+                        ..default()
+                    });
+                }
+                turn.0 ^= true;
             }
         }
     }
@@ -139,6 +172,9 @@ fn setup(
         }
     }
 }
+
+#[derive(Resource, Default)]
+struct Turn(bool);
 
 #[derive(Component)]
 struct Target(u8);
