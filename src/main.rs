@@ -39,6 +39,7 @@ fn main() {
         .insert_resource(FixedTime::new_from_secs(TIME_STEP))
         .insert_resource(GameState::default())
         .add_system(bevy::window::close_on_esc)
+        .add_system(close_button_system)
         .add_system(touch_system)
         .run();
 }
@@ -90,36 +91,70 @@ fn touch_system(
                     });
                 } else {
                     let scale = Vec3::new(15.0, 100.0, 1.0);
-                    commands.spawn(SpriteBundle {
-                        sprite: Sprite {
-                            color: Color::rgb(1.0, 0.5, 0.5),
-                            ..default()
-                        },
-                        transform: Transform {
-                            translation,
-                            rotation: Quat::from_rotation_z(PI * 0.25),
-                            scale,
-                        },
-                        ..default()
-                    });
-                    translation.z = 3.0;
-                    commands.spawn(SpriteBundle {
-                        sprite: Sprite {
-                            color: Color::rgb(1.0, 0.5, 0.5),
-                            ..default()
-                        },
-                        transform: Transform {
-                            translation,
-                            rotation: Quat::from_rotation_z(PI * 0.75),
-                            scale,
-                        },
-                        ..default()
-                    });
+                    spawn_cross(&mut commands, translation, scale, Color::rgb(1.0, 0.5, 0.5));
                 }
                 game_state.turn ^= true;
             }
         }
     }
+}
+
+fn close_button_system(
+    mut commands: Commands,
+    focused_windows: Query<(Entity, &Window)>,
+    touches: Res<Touches>,
+) {
+    let mut touched = false;
+    for touch in touches.iter_just_pressed() {
+        let position = touch.position();
+        let translation = Vec3::new(position.x - 400.0, 240.0 - position.y, 2.0);
+
+        if let Some(collision) = collide(
+            Vec3::new(360.0, 200.0, 1.0),
+            Vec2::new(40.0, 40.0),
+            translation,
+            Vec2::splat(1.0),
+        ) {
+            touched = true;
+        }
+    }
+    if !touched {
+        return;
+    }
+    for (window, focus) in focused_windows.iter() {
+        if !focus.focused {
+            continue;
+        }
+        commands.entity(window).despawn();
+    }
+}
+
+fn spawn_cross(commands: &mut Commands, mut translation: Vec3, scale: Vec3, color: Color) {
+    commands.spawn(SpriteBundle {
+        sprite: Sprite {
+            color: color,
+            ..default()
+        },
+        transform: Transform {
+            translation,
+            rotation: Quat::from_rotation_z(PI * 0.25),
+            scale,
+        },
+        ..default()
+    });
+    translation.z = 3.0;
+    commands.spawn(SpriteBundle {
+        sprite: Sprite {
+            color: color,
+            ..default()
+        },
+        transform: Transform {
+            translation,
+            rotation: Quat::from_rotation_z(PI * 0.75),
+            scale,
+        },
+        ..default()
+    });
 }
 
 fn setup(
@@ -176,6 +211,13 @@ fn setup(
             index += 1;
         }
     }
+    // Close button
+    spawn_cross(
+        &mut commands,
+        Vec3::new(360.0, 200.0, 1.0),
+        Vec3::new(10.0, 40.0, 1.0),
+        Color::rgb(0.6, 0.25, 0.25),
+    )
 }
 
 #[derive(Default, Eq, PartialEq)]
