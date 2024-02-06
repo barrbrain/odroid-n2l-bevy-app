@@ -9,6 +9,7 @@ use bevy::{
 };
 use std::f32::consts::PI;
 
+use crate::Cell::{Cross, Empty, Nought};
 #[cfg(not(debug_assertions))]
 use bevy::window::WindowMode;
 
@@ -36,7 +37,7 @@ fn main() {
         .insert_resource(ClearColor(BACKGROUND_COLOR))
         .add_startup_system(setup)
         .insert_resource(FixedTime::new_from_secs(TIME_STEP))
-        .insert_resource(Turn::default())
+        .insert_resource(GameState::default())
         .add_system(bevy::window::close_on_esc)
         .add_system(touch_system)
         .run();
@@ -46,8 +47,8 @@ fn touch_system(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
-    mut targets: Query<&Transform, With<Target>>,
-    mut turn: ResMut<Turn>,
+    mut targets: Query<(&Transform, &Target)>,
+    mut game_state: ResMut<GameState>,
     touches: Res<Touches>,
 ) {
     for touch in touches.iter_just_pressed() {
@@ -60,16 +61,20 @@ fn touch_system(
         let position = touch.position();
         let translation = Vec3::new(position.x - 400.0, 240.0 - position.y, 2.0);
 
-        for target in targets.iter() {
+        for (transform, target) in targets.iter() {
             if let Some(collision) = collide(
-                target.translation,
-                target.scale.truncate(),
+                transform.translation,
+                transform.scale.truncate(),
                 translation,
                 Vec2::splat(1.0),
             ) {
-                let mut translation = target.translation;
+                if !game_state.place(target.0) {
+                    // Ignore invalid placement
+                    continue;
+                }
+                let mut translation = transform.translation;
                 translation.z = 2.0;
-                if turn.0 {
+                if game_state.turn {
                     commands.spawn(MaterialMesh2dBundle {
                         mesh: meshes.add(shape::Circle::new(45.).into()).into(),
                         material: materials.add(ColorMaterial::from(Color::rgb(0.5, 0.5, 1.0))),
@@ -111,7 +116,7 @@ fn touch_system(
                         ..default()
                     });
                 }
-                turn.0 ^= true;
+                game_state.turn ^= true;
             }
         }
     }
@@ -173,11 +178,33 @@ fn setup(
     }
 }
 
+#[derive(Default, Eq, PartialEq)]
+enum Cell {
+    #[default]
+    Empty,
+    Nought,
+    Cross,
+}
+
 #[derive(Resource, Default)]
-struct Turn(bool);
+struct GameState {
+    turn: bool,
+    cells: [[Cell; 3]; 3],
+}
+
+impl GameState {
+    fn place(&mut self, cell: usize) -> bool {
+        let (row, column) = (cell / 3, cell % 3);
+        if self.cells[row][column] != Empty {
+            return false;
+        }
+        self.cells[row][column] = if self.turn { Cross } else { Nought };
+        true
+    }
+}
 
 #[derive(Component)]
-struct Target(u8);
+struct Target(usize);
 fn target(translation: Vec3) -> SpriteBundle {
     let scale = Vec3::new(110.0, 110.0, 1.0);
 
