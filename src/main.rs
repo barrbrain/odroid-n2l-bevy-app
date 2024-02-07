@@ -7,7 +7,7 @@ use bevy::{
     sprite::collide_aabb::{collide, Collision},
     sprite::MaterialMesh2dBundle,
 };
-use std::f32::consts::PI;
+use std::f32::consts::{PI, SQRT_2};
 
 use crate::Cell::{Cross, Empty, Nought};
 use crate::EndGame::{Column, Diagonal, Incomplete, Row, Tie};
@@ -76,7 +76,7 @@ fn touch_system(
                 }
                 let mut translation = transform.translation;
                 translation.z = 2.0;
-                if game_state.turn {
+                if !game_state.turn {
                     commands.spawn(MaterialMesh2dBundle {
                         mesh: meshes.add(shape::Circle::new(45.).into()).into(),
                         material: materials.add(ColorMaterial::from(Color::rgb(0.5, 0.5, 1.0))),
@@ -85,14 +85,73 @@ fn touch_system(
                     });
                     translation.z = 3.0;
                     commands.spawn(MaterialMesh2dBundle {
-                        mesh: meshes.add(shape::Circle::new(30.).into()).into(),
+                        mesh: meshes.add(shape::Circle::new(25.).into()).into(),
                         material: materials.add(ColorMaterial::from(BACKGROUND_COLOR)),
                         transform: Transform::from_translation(translation),
                         ..default()
                     });
                 } else {
-                    let scale = Vec3::new(15.0, 100.0, 1.0);
+                    let scale = Vec3::new(25.0, 100.0, 1.0);
                     spawn_cross(&mut commands, translation, scale, Color::rgb(1.0, 0.5, 0.5));
+                }
+                let color = if !game_state.turn {
+                    Color::rgb(0.35, 0.35, 0.75)
+                } else {
+                    Color::rgb(0.75, 0.35, 0.35)
+                };
+                translation.z = 4.0;
+                match game_state.end_game {
+                    Row(_) => {
+                        translation.x = 0.0;
+                        commands.spawn(SpriteBundle {
+                            sprite: Sprite { color, ..default() },
+                            transform: Transform {
+                                translation,
+                                rotation: Quat::from_rotation_z(PI * 0.5),
+                                scale: Vec3::new(15.0, 345.0, 1.0),
+                            },
+                            ..default()
+                        });
+                    }
+                    Column(_) => {
+                        translation.y = 0.0;
+                        commands.spawn(SpriteBundle {
+                            sprite: Sprite { color, ..default() },
+                            transform: Transform {
+                                translation,
+                                rotation: Quat::from_rotation_z(PI * 0.0),
+                                scale: Vec3::new(15.0, 345.0, 1.0),
+                            },
+                            ..default()
+                        });
+                    }
+                    Diagonal(0) => {
+                        translation.x = 0.0;
+                        translation.y = 0.0;
+                        commands.spawn(SpriteBundle {
+                            sprite: Sprite { color, ..default() },
+                            transform: Transform {
+                                translation,
+                                rotation: Quat::from_rotation_z(PI * 0.25),
+                                scale: Vec3::new(15.0, 330.0 * SQRT_2, 1.0),
+                            },
+                            ..default()
+                        });
+                    }
+                    Diagonal(1) => {
+                        translation.x = 0.0;
+                        translation.y = 0.0;
+                        commands.spawn(SpriteBundle {
+                            sprite: Sprite { color, ..default() },
+                            transform: Transform {
+                                translation,
+                                rotation: Quat::from_rotation_z(PI * 0.75),
+                                scale: Vec3::new(15.0, 330.0 * SQRT_2, 1.0),
+                            },
+                            ..default()
+                        });
+                    }
+                    _ => {}
                 }
                 game_state.turn ^= true;
             }
@@ -206,7 +265,7 @@ fn setup(
         ..default()
     });
     let mut index = 0;
-    for y in (-120..=120).step_by(120) {
+    for y in (-120..=120).rev().step_by(120) {
         for x in (-120..=120).step_by(120) {
             commands.spawn((target(Vec3::new(x as f32, y as f32, 0.)), Target(index)));
             index += 1;
