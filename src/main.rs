@@ -10,6 +10,7 @@ use bevy::{
 use std::f32::consts::PI;
 
 use crate::Cell::{Cross, Empty, Nought};
+use crate::EndGame::{Column, Diagonal, Incomplete, Row, Tie};
 #[cfg(not(debug_assertions))]
 use bevy::window::WindowMode;
 
@@ -228,19 +229,62 @@ enum Cell {
     Cross,
 }
 
+#[derive(Default, Eq, PartialEq)]
+enum EndGame {
+    #[default]
+    Incomplete,
+    Tie,
+    Row(usize),
+    Column(usize),
+    Diagonal(usize),
+}
+
 #[derive(Resource, Default)]
 struct GameState {
     turn: bool,
     cells: [[Cell; 3]; 3],
+    end_game: EndGame,
+}
+
+impl EndGame {
+    fn new(cells: &[[Cell; 3]; 3]) -> Self {
+        let complete = cells
+            .iter()
+            .find(|&row| row.iter().find(|&v| *v == Empty).is_some())
+            .is_none();
+        match cells {
+            [[Nought, Nought, Nought], _, _] | [[Cross, Cross, Cross], _, _] => Row(0),
+            [_, [Nought, Nought, Nought], _] | [_, [Cross, Cross, Cross], _] => Row(1),
+            [_, _, [Nought, Nought, Nought]] | [_, _, [Cross, Cross, Cross]] => Row(2),
+            [[Nought, _, _], [Nought, _, _], [Nought, _, _]]
+            | [[Cross, _, _], [Cross, _, _], [Cross, _, _]] => Column(0),
+            [[_, Nought, _], [_, Nought, _], [_, Nought, _]]
+            | [[_, Cross, _], [_, Cross, _], [_, Cross, _]] => Column(1),
+            [[_, _, Nought], [_, _, Nought], [_, _, Nought]]
+            | [[_, _, Cross], [_, _, Cross], [_, _, Cross]] => Column(2),
+            [[Nought, _, _], [_, Nought, _], [_, _, Nought]]
+            | [[Cross, _, _], [_, Cross, _], [_, _, Cross]] => Diagonal(0),
+            [[_, _, Nought], [_, Nought, _], [Nought, _, _]]
+            | [[_, _, Cross], [_, Cross, _], [Cross, _, _]] => Diagonal(1),
+            _ => {
+                if complete {
+                    Tie
+                } else {
+                    Incomplete
+                }
+            }
+        }
+    }
 }
 
 impl GameState {
     fn place(&mut self, cell: usize) -> bool {
         let (row, column) = (cell / 3, cell % 3);
-        if self.cells[row][column] != Empty {
+        if self.cells[row][column] != Empty || self.end_game != Incomplete {
             return false;
         }
         self.cells[row][column] = if self.turn { Cross } else { Nought };
+        self.end_game = EndGame::new(&self.cells);
         true
     }
 }
