@@ -49,6 +49,7 @@ fn touch_system(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
+    asset_server: Res<AssetServer>,
     mut targets: Query<(&Transform, &Target)>,
     mut game_state: ResMut<GameState>,
     touches: Res<Touches>,
@@ -150,6 +151,41 @@ fn touch_system(
                             },
                             ..default()
                         });
+                    }
+                    Tie => {
+                        translation.x = 0.0;
+                        translation.y = 0.0;
+                        commands.spawn(SpriteBundle {
+                            sprite: Sprite {
+                                color: Color::rgb(0.4, 0.3, 0.6),
+                                ..default()
+                            },
+                            transform: Transform {
+                                translation,
+                                rotation: Quat::from_rotation_z(PI * 0.0),
+                                scale: Vec3::new(260.0, 170.0, 1.0),
+                            },
+                            ..default()
+                        });
+                        commands.spawn(
+                            TextBundle::from_sections([TextSection::new(
+                                "TIE",
+                                TextStyle {
+                                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                                    font_size: 140.0,
+                                    color: Color::rgb(0.9, 0.9, 0.9),
+                                },
+                            )])
+                            .with_style(Style {
+                                position_type: PositionType::Absolute,
+                                position: UiRect {
+                                    top: Val::Px(170.0),
+                                    left: Val::Px(320.0),
+                                    ..default()
+                                },
+                                ..default()
+                            }),
+                        );
                     }
                     _ => {}
                 }
