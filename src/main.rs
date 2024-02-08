@@ -41,6 +41,7 @@ fn main() {
         .insert_resource(GameState::default())
         .add_system(bevy::window::close_on_esc)
         .add_system(close_button_system)
+        .add_system(reset_button_system)
         .add_system(touch_system)
         .run();
 }
@@ -139,7 +140,7 @@ fn touch_system(
                             ..default()
                         });
                     }
-                    Diagonal(1) => {
+                    Diagonal(_) => {
                         translation.x = 0.0;
                         translation.y = 0.0;
                         commands.spawn(SpriteBundle {
@@ -187,9 +188,46 @@ fn touch_system(
                             }),
                         );
                     }
-                    _ => {}
+                    Incomplete => {
+                        game_state.turn ^= true;
+                    }
                 }
-                game_state.turn ^= true;
+                if game_state.end_game != Incomplete {
+                    // Render Reset Button
+                    translation.x = 320.0;
+                    translation.y = -180.0;
+                    commands.spawn(SpriteBundle {
+                        sprite: Sprite {
+                            color: Color::rgb(0.4, 0.3, 0.6),
+                            ..default()
+                        },
+                        transform: Transform {
+                            translation,
+                            rotation: Quat::from_rotation_z(PI * 0.0),
+                            scale: Vec3::new(120.0, 50.0, 1.0),
+                        },
+                        ..default()
+                    });
+                    commands.spawn(
+                        TextBundle::from_sections([TextSection::new(
+                            "RESET",
+                            TextStyle {
+                                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                                font_size: 40.0,
+                                color: Color::rgb(0.9, 0.9, 0.9),
+                            },
+                        )])
+                        .with_style(Style {
+                            position_type: PositionType::Absolute,
+                            position: UiRect {
+                                top: Val::Px(400.0),
+                                left: Val::Px(675.0),
+                                ..default()
+                            },
+                            ..default()
+                        }),
+                    );
+                }
             }
         }
     }
@@ -222,6 +260,45 @@ fn close_button_system(
             continue;
         }
         commands.entity(window).despawn();
+    }
+}
+
+fn reset_button_system(
+    mut commands: Commands,
+    touches: Res<Touches>,
+    entities: Query<
+        Entity,
+        (
+            With<Transform>,
+            Without<Grid>,
+            Without<Target>,
+            Without<CloseButton>,
+        ),
+    >,
+    mut game_state: ResMut<GameState>,
+) {
+    let mut touched = false;
+    for touch in touches.iter_just_pressed() {
+        let position = touch.position();
+        let translation = Vec3::new(position.x - 400.0, 240.0 - position.y, 2.0);
+
+        if let Some(collision) = collide(
+            Vec3::new(320.0, -180.0, 0.0),
+            Vec2::new(120.0, 50.0),
+            translation,
+            Vec2::splat(1.0),
+        ) {
+            touched = true;
+        }
+    }
+    if !touched {
+        return;
+    }
+    // Action
+    info!("just pressed reset button",);
+    game_state.reset();
+    for entity in entities.iter() {
+        commands.entity(entity).despawn();
     }
 }
 
@@ -258,48 +335,60 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn((Camera2dBundle::default(), Grid));
 
     // Rectangle.Vertical.Left
-    commands.spawn(SpriteBundle {
-        sprite: Sprite {
-            color: Color::rgb(0.25, 0.25, 0.75),
-            custom_size: Some(Vec2::new(10.0, 350.0)),
+    commands.spawn((
+        SpriteBundle {
+            sprite: Sprite {
+                color: Color::rgb(0.25, 0.25, 0.75),
+                custom_size: Some(Vec2::new(10.0, 350.0)),
+                ..default()
+            },
+            transform: Transform::from_translation(Vec3::new(-60., 0., 0.)),
             ..default()
         },
-        transform: Transform::from_translation(Vec3::new(-60., 0., 0.)),
-        ..default()
-    });
+        Grid,
+    ));
     // Rectangle.Vertical.Right
-    commands.spawn(SpriteBundle {
-        sprite: Sprite {
-            color: Color::rgb(0.25, 0.25, 0.75),
-            custom_size: Some(Vec2::new(10.0, 350.0)),
+    commands.spawn((
+        SpriteBundle {
+            sprite: Sprite {
+                color: Color::rgb(0.25, 0.25, 0.75),
+                custom_size: Some(Vec2::new(10.0, 350.0)),
+                ..default()
+            },
+            transform: Transform::from_translation(Vec3::new(60., 0., 0.)),
             ..default()
         },
-        transform: Transform::from_translation(Vec3::new(60., 0., 0.)),
-        ..default()
-    });
+        Grid,
+    ));
     // Rectangle.Horizontal.Top
-    commands.spawn(SpriteBundle {
-        sprite: Sprite {
-            color: Color::rgb(0.25, 0.25, 0.75),
-            custom_size: Some(Vec2::new(350.0, 10.0)),
+    commands.spawn((
+        SpriteBundle {
+            sprite: Sprite {
+                color: Color::rgb(0.25, 0.25, 0.75),
+                custom_size: Some(Vec2::new(350.0, 10.0)),
+                ..default()
+            },
+            transform: Transform::from_translation(Vec3::new(0., 60., 0.)),
             ..default()
         },
-        transform: Transform::from_translation(Vec3::new(0., 60., 0.)),
-        ..default()
-    });
+        Grid,
+    ));
     // Rectangle.Horizontal.Bottom
-    commands.spawn(SpriteBundle {
-        sprite: Sprite {
-            color: Color::rgb(0.25, 0.25, 0.75),
-            custom_size: Some(Vec2::new(350.0, 10.0)),
+    commands.spawn((
+        SpriteBundle {
+            sprite: Sprite {
+                color: Color::rgb(0.25, 0.25, 0.75),
+                custom_size: Some(Vec2::new(350.0, 10.0)),
+                ..default()
+            },
+            transform: Transform::from_translation(Vec3::new(0., -60., 0.)),
             ..default()
         },
-        transform: Transform::from_translation(Vec3::new(0., -60., 0.)),
-        ..default()
-    });
+        Grid,
+    ));
     let mut index = 0;
     for y in (-120..=120).rev().step_by(120) {
         for x in (-120..=120).step_by(120) {
@@ -308,12 +397,34 @@ fn setup(
         }
     }
     // Close button
-    spawn_cross(
-        &mut commands,
-        Vec3::new(360.0, 200.0, 1.0),
-        Vec3::new(10.0, 40.0, 1.0),
-        Color::rgb(0.6, 0.25, 0.25),
-    )
+    let mut translation = Vec3::new(360.0, 200.0, 1.0);
+    let scale = Vec3::new(10.0, 40.0, 1.0);
+    let color = Color::rgb(0.6, 0.25, 0.25);
+    commands.spawn((
+        SpriteBundle {
+            sprite: Sprite { color, ..default() },
+            transform: Transform {
+                translation,
+                rotation: Quat::from_rotation_z(PI * 0.25),
+                scale,
+            },
+            ..default()
+        },
+        CloseButton,
+    ));
+    translation.z = 3.0;
+    commands.spawn((
+        SpriteBundle {
+            sprite: Sprite { color, ..default() },
+            transform: Transform {
+                translation,
+                rotation: Quat::from_rotation_z(PI * 0.75),
+                scale,
+            },
+            ..default()
+        },
+        CloseButton,
+    ));
 }
 
 #[derive(Default, Eq, PartialEq)]
@@ -382,7 +493,17 @@ impl GameState {
         self.end_game = EndGame::new(&self.cells);
         true
     }
+
+    fn reset(&mut self) {
+        *self = GameState::default();
+    }
 }
+
+#[derive(Component)]
+struct Grid;
+
+#[derive(Component)]
+struct CloseButton;
 
 #[derive(Component)]
 struct Target(usize);
